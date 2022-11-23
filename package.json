@@ -5,6 +5,7 @@
   "author": "An Vo",
   "license": "MIT",
   "dependencies": {
-    "csv-parse": "^5.3.2"
+    "csv-parse": "^5.3.2",
+    "yargs": "^17.6.2"
   }
 }
