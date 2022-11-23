@@ -15,7 +15,7 @@ const argv = yargs
   })
   .option("date", {
     alias: "d",
-    description: "Date in format YYYYMMDD",
+    description: "Date in format YYYY-MM-DD",
     type: "string",
   })
   .help()
@@ -59,7 +59,7 @@ fs.createReadStream(filePath)
       const dateBeginingTimestamp = new Date(argv.date).valueOf() / 1000;
       if (
         timestamp < dateBeginingTimestamp ||
-        timestamp >= dateBeginingTimestamp + 24 * 60 * 60 // plus 1 day
+        timestamp >= dateBeginingTimestamp + 24 * 60 * 60 // plus 24 hours to get end date
       ) {
         return;
       }
