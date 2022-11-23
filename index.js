@@ -16,15 +16,6 @@ const argv = yargs
   .help()
   .alias("help", "h").argv;
 
-if (argv.token) {
-  console.log("You are find with token: ", argv.token);
-}
-if (argv.date) {
-  console.log("You are find on date: ", new Date(argv.date));
-}
-
-console.log(argv);
-
 const result = {
   BTC: 0,
   ETH: 0,
@@ -34,9 +25,20 @@ fs.createReadStream("./simple_tx.csv")
   .pipe(parse({ delimiter: ",", from_line: 2 }))
   .on("data", function (row) {
     // timestamp, action, symbol, amount
+    const timestamp = row[0];
     const action = row[1];
     const symbol = row[2];
     const amount = parseFloat(row[3]);
+    if (argv.date) {
+      const dateBeginingTimestamp = new Date(argv.date).valueOf() / 1000;
+      if (
+        timestamp < dateBeginingTimestamp ||
+        timestamp >= dateBeginingTimestamp + 24 * 60 * 60 // plus 1 day
+      ) {
+        return;
+      }
+    }
+
     switch (action) {
       case "DEPOSIT":
         result[symbol] += amount;
@@ -47,6 +49,13 @@ fs.createReadStream("./simple_tx.csv")
     }
   })
   .on("end", function () {
+    if (argv.date) {
+      console.log("Filtered by date: ", new Date(argv.date));
+    }
+
+    if (argv.token) {
+      console.log("Filtered by token: ", argv.token);
+    }
     console.log("Result", result);
   })
   .on("error", function (error) {
