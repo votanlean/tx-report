@@ -5,9 +5,9 @@
   "author": "An Vo",
   "license": "MIT",
   "dependencies": {
-    "axios": "^1.2.0",
     "csv-parse": "^5.3.2",
     "dotenv": "^16.0.3",
+    "node-fetch": "^2",
     "yargs": "^17.6.2"
   }
 }

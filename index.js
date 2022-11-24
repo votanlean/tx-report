@@ -2,52 +2,88 @@ require("dotenv").config();
 const fs = require("node:fs");
 const { parse } = require("csv-parse");
 const yargs = require("yargs");
+const fetch = require("node-fetch");
 
-fs.readFile("./data/prices.json", "utf8", (err, prices) => {
-  if (err) {
-    console.error(`Cannot read price data, ${err.message}`);
+const supportTokens = ["BTC", "ETH", "XRP"];
+const filePath = process.env.FILE_PATH || "./data/sample.csv";
+const pricePath = process.env.PRICE_PATH || "./data/prices.json";
+const apiKey = process.env.API_KEY;
+const argv = yargs
+  .command("report", "Show simple report from the transactions file")
+  .option("token", {
+    alias: "t",
+    description: "Token Symbol",
+    type: "string",
+  })
+  .option("date", {
+    alias: "d",
+    description: "Date in format YYYY-MM-DD",
+    type: "string",
+  })
+  .option("refresh", {
+    alias: "r",
+    description: "Get newest price",
+    type: "boolean",
+  })
+  .help()
+  .alias("help", "h").argv;
+
+let result = {};
+if (argv.token) {
+  if (supportTokens.includes(argv.token)) {
+    console.log("Filtered by token: ", argv.token);
+    result[argv.token] = 0;
+  } else {
+    console.error(`Filtered token ${argv.token} is not support`);
     process.exit(1);
   }
-  prices = JSON.parse(prices);
+} else {
+  supportTokens.forEach((token) => {
+    result[token] = 0;
+  });
+}
 
-  const supportToken = ["BTC", "ETH", "XRP"];
-  const filePath = process.env.FILE_PATH || "./data/sample.csv";
-  const result = supportToken.reduce((res, key) => ((res[key] = 0), res), {});
-  const argv = yargs
-    .command("report", "Show simple report from the transactions file")
-    .option("token", {
-      alias: "t",
-      description: "Token Symbol",
-      type: "string",
-    })
-    .option("date", {
-      alias: "d",
-      description: "Date in format YYYY-MM-DD",
-      type: "string",
-    })
-    .help()
-    .alias("help", "h").argv;
-
-  if (argv.token) {
-    if (supportToken.includes(argv.token)) {
-      console.log("Filtered by token: ", argv.token);
-    } else {
-      console.error(`Filtered token ${argv.token} is not support`);
-      process.exit(1);
-    }
+if (argv.date) {
+  const filteredDate = new Date(argv.date);
+  if (filteredDate instanceof Date && !isNaN(filteredDate)) {
+    console.log("Filtered by date: ", argv.date);
+  } else {
+    console.error(
+      `Invalid filter date: ${argv.date}, the format is YYYY-MM-DD`
+    );
   }
+}
 
-  if (argv.date) {
-    const filteredDate = new Date(argv.date);
-    if (filteredDate instanceof Date && !isNaN(filteredDate)) {
-      console.log("Filtered by date: ", argv.date);
-    } else {
-      console.error(
-        `Invalid filter date: ${argv.date}, the format is YYYY-MM-DD`
-      );
+let prices = {};
+if (argv.refresh) {
+  fetch(
+    `https://min-api.cryptocompare.com/data/pricemulti?fsyms=${supportTokens.join()}&tsyms=USD&api_key=${apiKey}`
+  )
+    .then((res) => res.json())
+    .then((json) => {
+      prices = json;
+      console.log("json", json);
+      fs.writeFile(pricePath, JSON.stringify(json), (err) => {
+        if (err) {
+          console.log(err);
+        } else {
+          console.log("Successfully update price");
+        }
+      });
+      parseTx();
+    });
+} else {
+  fs.readFile(pricePath, "utf8", (err, data) => {
+    if (err) {
+      console.error(`Cannot read price data, ${err.message}`);
+      parseTx.exit(1);
     }
-  }
+    prices = JSON.parse(data);
+    parseTx();
+  });
+}
 
+function parseTx() {
   fs.createReadStream(filePath)
     .pipe(parse({ delimiter: ",", from_line: 2 }))
     .on("data", function (row) {
@@ -61,7 +97,6 @@ fs.readFile("./data/prices.json", "utf8", (err, prices) => {
           return;
         }
       }
-
       if (argv.date) {
         const dateBeginingTimestamp = new Date(argv.date).valueOf() / 1000;
         if (
@@ -71,7 +106,6 @@ fs.readFile("./data/prices.json", "utf8", (err, prices) => {
           return;
         }
       }
-
       switch (action) {
         case "DEPOSIT":
           result[symbol] += amount;
@@ -82,12 +116,12 @@ fs.readFile("./data/prices.json", "utf8", (err, prices) => {
       }
     })
     .on("end", function () {
-      supportToken.forEach((symbol) => {
-        result[symbol] = result[symbol] * prices[symbol]["USD"];
+      console.log("Porfolio Balance:");
+      Object.keys(result).forEach((symbol) => {
+        console.log(`${symbol}: $${result[symbol] * prices[symbol]["USD"]}`);
       });
-      console.log("Result", result);
     })
     .on("error", function (error) {
       console.error(error.message);
     });
-});
+}
