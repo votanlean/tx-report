@@ -62,7 +62,6 @@ if (argv.refresh) {
     .then((res) => res.json())
     .then((json) => {
       prices = json;
-      console.log("json", json);
       fs.writeFile(pricePath, JSON.stringify(json), (err) => {
         if (err) {
           console.log(err);
